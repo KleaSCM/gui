@@ -31,6 +31,7 @@ enum MessageEvent {
     AnimationTick,
     TypingAnimationTick,
     AddAssistantMessage,
+    DropZoneEvent(components::drop_zone::DropZoneMessage),
 }
 
 impl Application for ChatApp {
@@ -162,6 +163,9 @@ impl Application for ChatApp {
                     Command::none()
                 }
             }
+            MessageEvent::DropZoneEvent(drop_message) => {
+                self.drop_zone.update(drop_message).map(MessageEvent::DropZoneEvent)
+            }
         }
     }
 
@@ -213,7 +217,8 @@ impl Application for ChatApp {
                 .spacing(10)
                 .padding(10)
                 .align_items(Alignment::Center),
-            self.drop_zone.view(),
+            self.drop_zone.view()
+                .map(MessageEvent::DropZoneEvent),
             scroll_button
         ]
         .spacing(10)

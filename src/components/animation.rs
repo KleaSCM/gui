@@ -12,6 +12,7 @@ pub enum AnimationType {
 
 #[derive(Debug, Clone)]
 pub struct Animation {
+    #[allow(dead_code)]
     pub animation_type: AnimationType,
     pub start_time: Instant,
     pub duration: Duration,
@@ -39,6 +40,7 @@ impl Animation {
         }
     }
 
+    #[allow(dead_code)]
     pub fn progress(&self) -> f32 {
         if self.is_complete {
             return 1.0;

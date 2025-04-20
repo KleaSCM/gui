@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+
+
+- if a rust error says "never used" always check the code to make sure its not goig to be used in a future unwriten feture or component before deleting it to resolve the error
+- in rust if the error is "never contructed" make sure that it isnt relavant to the codebase before deleting it to resolve the error

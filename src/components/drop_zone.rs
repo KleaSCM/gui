@@ -1,21 +1,52 @@
 use iced::{
     widget::{container, text},
-    Element, Length, Color,
+    Element, Length, Command,
 };
+use std::path::PathBuf;
 
 #[derive(Debug, Default)]
 pub struct DropZone {
     pub is_dragging: bool,
+    pub image_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub enum DropZoneMessage {
+    DragEnter,
+    DragLeave,
+    FileDropped(PathBuf),
 }
 
 impl DropZone {
-    pub fn view<'a, MessageType: 'static>(&self) -> Element<'a, MessageType> {
-        let content = if self.is_dragging {
-            text("Drop image here...")
-                .style(iced::theme::Text::Color(Color::WHITE))
+    pub fn update(&mut self, message: DropZoneMessage) -> Command<DropZoneMessage> {
+        match message {
+            DropZoneMessage::DragEnter => {
+                self.is_dragging = true;
+                Command::none()
+            }
+            DropZoneMessage::DragLeave => {
+                self.is_dragging = false;
+                Command::none()
+            }
+            DropZoneMessage::FileDropped(path) => {
+                self.is_dragging = false;
+                self.image_path = Some(path);
+                Command::none()
+            }
+        }
+    }
+
+    pub fn view<'a>(&self) -> Element<'a, DropZoneMessage> {
+        let content = if let Some(path) = &self.image_path {
+            Element::from(text(format!("Image dropped: {}", path.display())).style(iced::theme::Text::Default))
         } else {
-            text("Drag and drop an image here")
-                .style(iced::theme::Text::Color(Color::from_rgb(0.7, 0.7, 0.7)))
+            let text_content = if self.is_dragging {
+                text("Drop image here...").style(iced::theme::Text::Default)
+            } else {
+                text("Drag and drop an image here").style(iced::theme::Text::Default)
+            };
+            Element::from(text_content)
         };
 
         container(content)
