@@ -11,18 +11,23 @@ pub struct AvatarStyle;
 pub struct AvatarPaneStyle;
 pub struct TooltipStyle;
 pub struct GlowingTextStyle;
+#[allow(dead_code)]
+pub struct AnimatedContainerStyle {
+    pub opacity: f32,
+    pub offset_x: f32,
+}
 
 impl container::StyleSheet for UserMessageStyle {
     type Style = Theme;
 
     fn appearance(&self, _style: &Self::Style) -> container::Appearance {
         container::Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(0.4, 0.2, 0.5))), // Soft purple
+            background: Some(iced::Background::Color(iced::Color::from_rgb(0.4, 0.2, 0.5))),
             text_color: Some(iced::Color::WHITE),
             border: iced::Border {
-                radius: 15.0.into(),
-                width: 1.0,
-                color: iced::Color::from_rgb(0.6, 0.3, 0.7), // Lighter purple border
+                radius: 20.0.into(),
+                width: 0.0,
+                color: iced::Color::TRANSPARENT,
             },
             ..Default::default()
         }
@@ -34,12 +39,12 @@ impl container::StyleSheet for AssistantMessageStyle {
 
     fn appearance(&self, _style: &Self::Style) -> container::Appearance {
         container::Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(0.2, 0.3, 0.4))), // Soft teal
+            background: Some(iced::Background::Color(iced::Color::from_rgb(0.2, 0.3, 0.4))),
             text_color: Some(iced::Color::WHITE),
             border: iced::Border {
-                radius: 15.0.into(),
-                width: 1.0,
-                color: iced::Color::from_rgb(0.3, 0.4, 0.5), // Lighter teal border
+                radius: 20.0.into(),
+                width: 0.0,
+                color: iced::Color::TRANSPARENT,
             },
             ..Default::default()
         }
@@ -246,6 +251,19 @@ impl text::StyleSheet for GlowingTextStyle {
     fn appearance(&self, _style: Theme) -> text::Appearance {
         text::Appearance {
             color: Some(iced::Color::WHITE),
+        }
+    }
+}
+
+impl container::StyleSheet for AnimatedContainerStyle {
+    type Style = Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> container::Appearance {
+        container::Appearance {
+            background: None,
+            border: iced::Border::default(),
+            shadow: iced::Shadow::default(),
+            text_color: None,
         }
     }
 } 

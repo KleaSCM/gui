@@ -5,7 +5,7 @@ use iced::{
 
 use super::styles::{HistoryMessageStyle, HistoryPaneStyle};
 
-pub fn view_history<'a, MessageType: 'static>(messages: &[super::Message]) -> Element<'a, MessageType> {
+pub fn view_history<'a, MessageType: 'static>(messages: &[super::animated_message::AnimatedMessage]) -> Element<'a, MessageType> {
     let history_content = column![
         text("Chat History").size(20),
         scrollable(
@@ -13,7 +13,7 @@ pub fn view_history<'a, MessageType: 'static>(messages: &[super::Message]) -> El
                 messages
                     .iter()
                     .map(|msg| {
-                        container(text(&msg.content))
+                        container(text(&msg.message))
                             .padding(10)
                             .style(iced::theme::Container::Custom(Box::new(HistoryMessageStyle)))
                             .into()

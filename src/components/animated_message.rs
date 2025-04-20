@@ -1,71 +1,85 @@
+// This file is intentionally empty 
+
 use iced::{
-    widget::{container, text, row, column},
-    Element, Color,
+    widget::{container, row, text, Column, mouse_area},
+    Element, Length, Padding, Theme,
+};
+use std::time::Duration;
+use crate::components::{
+    animation::{Animation, AnimationType},
+    styles::{AssistantMessageStyle, UserMessageStyle},
 };
 
-use super::{styles::{UserMessageStyle, AssistantMessageStyle}, avatar::view_avatar, message::Message};
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AnimatedMessage {
-    pub message: Message,
-    pub animation_progress: f32,
+    pub message: String,
+    pub role: String,
+    pub timestamp: String,
+    pub status: String,
+    pub animation: Animation,
 }
 
 impl AnimatedMessage {
-    pub fn new(message: Message) -> Self {
+    pub fn new(message: String, role: String) -> Self {
+        let message_len = message.len();
+        let animation_type = match role.as_str() {
+            "assistant" => AnimationType::Typing,
+            "system" => AnimationType::FadeIn,
+            _ => AnimationType::SlideIn,
+        };
+        
         Self {
             message,
-            animation_progress: 0.0,
+            role,
+            timestamp: chrono::Local::now().format("%H:%M").to_string(),
+            status: "Sent".to_string(),
+            animation: Animation::new(animation_type, Duration::from_millis(50 * message_len as u64)),
         }
     }
 
-    pub fn update(&mut self, delta: f32) {
-        self.animation_progress = (self.animation_progress + delta).min(1.0);
+    pub fn update(&mut self) {
+        self.animation.update();
     }
 
     pub fn is_complete(&self) -> bool {
-        self.animation_progress >= 1.0
+        self.animation.is_complete
     }
 
-    pub fn view<'a, MessageType: 'static>(&self) -> Element<'a, MessageType> {
-        let timestamp = self.message.timestamp.format("%H:%M").to_string();
-        let status_icon = match self.message.status {
-            super::message::MessageStatus::Sent => "✓",
-            super::message::MessageStatus::Delivered => "✓✓",
-        };
-
-        let message_content = column![
-            text(&self.message.content)
-                .style(iced::theme::Text::Color(Color::WHITE)),
-            row![
-                text(timestamp)
-                    .size(12)
-                    .style(iced::theme::Text::Color(Color::from_rgb(0.7, 0.7, 0.7))),
-                text(status_icon)
-                    .size(12)
-                    .style(iced::theme::Text::Color(Color::from_rgb(0.7, 0.7, 0.7)))
-            ]
-            .spacing(5)
-            .align_items(iced::Alignment::Center)
-        ]
-        .spacing(5);
-
-        let message_style = if self.message.role == "user" {
-            container(message_content)
-                .padding(10)
-                .style(iced::theme::Container::Custom(Box::new(UserMessageStyle)))
+    pub fn view<'a>(&self) -> Element<'a, Theme> {
+        let message_style = if self.role == "user" {
+            iced::theme::Container::Custom(Box::new(UserMessageStyle))
         } else {
-            container(message_content)
-                .padding(10)
-                .style(iced::theme::Container::Custom(Box::new(AssistantMessageStyle)))
+            iced::theme::Container::Custom(Box::new(AssistantMessageStyle))
         };
+
+        let content = Column::new()
+            .push(text(&self.message))
+            .push(
+                row![
+                    text(&self.timestamp).size(12),
+                    text(&self.status).size(12),
+                ]
+                .spacing(8),
+            )
+            .spacing(8)
+            .padding(Padding::from(8))
+            .width(Length::Shrink);
+
+        let message_container = mouse_area(
+            container(content)
+                .style(message_style)
+                .padding(Padding::from(8))
+                .width(Length::Shrink)
+        )
+        .on_press(Theme::default());
 
         row![
-            view_avatar::<MessageType>(&self.message.role),
-            message_style
+            super::avatar::view_avatar::<Theme>(&self.role),
+            message_container
         ]
-        .spacing(10)
-        .align_items(iced::Alignment::Center)
+        .spacing(8)
+        .padding(Padding::from(8))
+        .width(Length::Fill)
         .into()
     }
 } 

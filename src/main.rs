@@ -5,19 +5,20 @@ use iced::{
 
 mod components;
 use components::{
-    Message, history::view_history, avatar_pane::view_avatar_pane,
-    animated_message::AnimatedMessage, scroll_button::scroll_button,
+    drop_zone::DropZone,
+    animated_message::AnimatedMessage,
 };
-use components::message::MessageStatus;
 
 #[derive(Debug, Default)]
 struct ChatApp {
-    messages: Vec<Message>,
     animated_messages: Vec<AnimatedMessage>,
     input: String,
     show_history: bool,
     is_typing: bool,
     show_scroll_button: bool,
+    drop_zone: DropZone,
+    scroll_offset: f32,
+    animation_progress: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -26,9 +27,10 @@ enum MessageEvent {
     SendMessage,
     ToggleHistory,
     Search,
-    UpdateMessageStatus(usize, MessageStatus),
     ScrollToBottom,
     AnimationTick,
+    TypingAnimationTick,
+    AddAssistantMessage,
 }
 
 impl Application for ChatApp {
@@ -39,18 +41,29 @@ impl Application for ChatApp {
 
     fn new(_flags: ()) -> (Self, Command<MessageEvent>) {
         (
-            Self::default(),
-            Command::perform(
-                async {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(16)).await;
-                },
-                |_| MessageEvent::AnimationTick,
-            ),
+            Self {
+                animation_progress: 0.0,
+                ..Default::default()
+            },
+            Command::batch(vec![
+                Command::perform(
+                    async {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(16)).await;
+                    },
+                    |_| MessageEvent::AnimationTick,
+                ),
+                Command::perform(
+                    async {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                    },
+                    |_| MessageEvent::TypingAnimationTick,
+                ),
+            ]),
         )
     }
 
     fn title(&self) -> String {
-        String::from("Cyberpunk Chat")
+        String::from("Shandris")
     }
 
     fn update(&mut self, message: MessageEvent) -> Command<MessageEvent> {
@@ -61,37 +74,48 @@ impl Application for ChatApp {
             }
             MessageEvent::SendMessage => {
                 if !self.input.trim().is_empty() {
-                    let user_message = Message {
-                        role: "user".to_string(),
-                        content: self.input.clone(),
-                        timestamp: chrono::Local::now(),
-                        status: MessageStatus::Sent,
-                    };
-                    self.messages.push(user_message.clone());
-                    self.animated_messages.push(AnimatedMessage::new(user_message));
+                    let animated_msg = AnimatedMessage::new(self.input.clone(), "user".to_string());
+                    self.animated_messages.push(animated_msg);
                     self.input.clear();
                     self.is_typing = true;
                     self.show_scroll_button = true;
-                    
-                    let message_index = self.messages.len() - 1;
+                    self.scroll_offset = f32::MAX;
+                    self.animation_progress = 0.0;
                     
                     Command::batch(vec![
                         Command::perform(
                             async {
                                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                             },
-                            move |_| MessageEvent::UpdateMessageStatus(message_index, MessageStatus::Delivered)
+                            |_| MessageEvent::AddAssistantMessage
                         ),
                         Command::perform(
                             async {
                                 tokio::time::sleep(tokio::time::Duration::from_millis(16)).await;
                             },
-                            |_| MessageEvent::AnimationTick,
+                            |_| MessageEvent::AnimationTick
+                        ),
+                        Command::perform(
+                            async {},
+                            |_| MessageEvent::AnimationTick
                         ),
                     ])
                 } else {
                     Command::none()
                 }
+            }
+            MessageEvent::AddAssistantMessage => {
+                let assistant_msg = AnimatedMessage::new(
+                    "This is a simulated response.".to_string(),
+                    "assistant".to_string()
+                );
+                self.animated_messages.push(assistant_msg);
+                Command::perform(
+                    async {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(16)).await;
+                    },
+                    |_| MessageEvent::AnimationTick,
+                )
             }
             MessageEvent::ToggleHistory => {
                 self.show_history = !self.show_history;
@@ -101,40 +125,15 @@ impl Application for ChatApp {
                 println!("Search clicked");
                 Command::none()
             }
-            MessageEvent::UpdateMessageStatus(index, status) => {
-                if let Some(message) = self.messages.get_mut(index) {
-                    message.status = status.clone();
-                    match status {
-                        MessageStatus::Delivered => {
-                            self.is_typing = false;
-                            let assistant_message = Message {
-                                role: "assistant".to_string(),
-                                content: "This is a simulated response.".to_string(),
-                                timestamp: chrono::Local::now(),
-                                status: MessageStatus::Sent,
-                            };
-                            self.messages.push(assistant_message.clone());
-                            self.animated_messages.push(AnimatedMessage::new(assistant_message));
-                            self.show_scroll_button = true;
-                        }
-                        _ => {}
-                    }
-                }
-                Command::perform(
-                    async {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(16)).await;
-                    },
-                    |_| MessageEvent::AnimationTick,
-                )
-            }
             MessageEvent::ScrollToBottom => {
                 self.show_scroll_button = false;
+                self.scroll_offset = f32::MAX;
                 Command::none()
             }
             MessageEvent::AnimationTick => {
                 let mut all_complete = true;
                 for message in &mut self.animated_messages {
-                    message.update(0.1);
+                    message.update();
                     if !message.is_complete() {
                         all_complete = false;
                     }
@@ -151,17 +150,32 @@ impl Application for ChatApp {
                     Command::none()
                 }
             }
+            MessageEvent::TypingAnimationTick => {
+                if self.is_typing {
+                    Command::perform(
+                        async {
+                            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                        },
+                        |_| MessageEvent::TypingAnimationTick,
+                    )
+                } else {
+                    Command::none()
+                }
+            }
         }
     }
 
     fn view(&self) -> Element<MessageEvent> {
-        let messages = self.animated_messages.iter().map(|msg| msg.view::<MessageEvent>());
-
+        let messages = self.animated_messages.iter().map(|msg| {
+            msg.view().map(|_| MessageEvent::AnimationTick)
+        });
         let messages_column = column(messages).spacing(10);
 
         let typing_indicator = if self.is_typing {
+            let dots = (self.animation_progress * 3.0).floor() as usize;
+            let dots_text = ".".repeat(dots);
             container(
-                text("Assistant is typing...")
+                text(format!("Assistant is typing{}", dots_text))
                     .style(iced::theme::Text::Color(iced::Color::from_rgb(0.7, 0.7, 0.7)))
             )
             .padding(10)
@@ -171,7 +185,7 @@ impl Application for ChatApp {
         };
 
         let scroll_button = if self.show_scroll_button {
-            container(scroll_button(MessageEvent::ScrollToBottom))
+            container(components::scroll_button::scroll_button(MessageEvent::ScrollToBottom))
                 .padding(10)
                 .into()
         } else {
@@ -192,12 +206,14 @@ impl Application for ChatApp {
         let chat_content = column![
             scrollable(messages_column)
                 .height(Length::Fill)
-                .width(Length::Fill),
+                .width(Length::Fill)
+                .on_scroll(|_| MessageEvent::AnimationTick),
             typing_indicator,
             row![input, send_button]
                 .spacing(10)
                 .padding(10)
                 .align_items(Alignment::Center),
+            self.drop_zone.view(),
             scroll_button
         ]
         .spacing(10)
@@ -205,16 +221,16 @@ impl Application for ChatApp {
 
         let main_content = if self.show_history {
             row![
-                view_avatar_pane::<MessageEvent>(MessageEvent::ToggleHistory, MessageEvent::Search),
+                components::avatar_pane::view_avatar_pane::<MessageEvent>(MessageEvent::ToggleHistory, MessageEvent::Search),
                 chat_content,
-                view_history::<MessageEvent>(&self.messages)
+                components::history::view_history::<MessageEvent>(&self.animated_messages)
             ]
             .spacing(0)
             .width(Length::Fill)
             .height(Length::Fill)
         } else {
             row![
-                view_avatar_pane::<MessageEvent>(MessageEvent::ToggleHistory, MessageEvent::Search),
+                components::avatar_pane::view_avatar_pane::<MessageEvent>(MessageEvent::ToggleHistory, MessageEvent::Search),
                 chat_content
             ]
             .spacing(0)

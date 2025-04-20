@@ -1,5 +1,5 @@
 use iced::{
-    widget::{container, image, column, text, vertical_space},
+    widget::{container, column, text, vertical_space},
     Element, Length,
 };
 
@@ -8,9 +8,8 @@ use super::buttons::{circular_button, circular_button_row};
 
 pub fn view_avatar_pane<'a, MessageType: 'static + Clone>(on_toggle_history: MessageType, on_search: MessageType) -> Element<'a, MessageType> {
     let avatar = container(
-        image::Image::new("assets/5.jpg")
-            .width(Length::Fixed(114.0))
-            .height(Length::Fixed(114.0))
+        text("👤")
+            .size(50)
     )
     .width(Length::Fixed(120.0))
     .height(Length::Fixed(120.0))
@@ -29,7 +28,7 @@ pub fn view_avatar_pane<'a, MessageType: 'static + Clone>(on_toggle_history: Mes
         vertical_space(),
         buttons,
         vertical_space(),
-        text("Cyberpunk Chat")
+        text("Shandris")
             .size(24)
             .style(iced::theme::Text::Color(iced::Color::from_rgb(0.8, 0.6, 0.9))),
         vertical_space(),
